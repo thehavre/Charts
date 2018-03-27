@@ -24,9 +24,20 @@ public enum FillType: Int
     case layer
 }
 
+@objc(ChartLinearGradientFillScalable)
+public protocol LinearGradientFillScalableDelegate {
+    
+    var scaleX: CGFloat { get }
+    var scaleY: CGFloat { get }
+    var transX: CGFloat { get }
+    var transY: CGFloat { get }
+    
+}
+
 @objc(ChartFill)
 open class Fill: NSObject
 {
+    
     private var _type: FillType = FillType.empty
     private var _color: CGColor?
     private var _gradient: CGGradient?
@@ -39,6 +50,13 @@ open class Fill: NSObject
     private var _layer: CGLayer?
     
     // MARK: Properties
+    
+    /// Set this delegate if needed to scale and translate linear gradient fill.
+    ///
+    /// You can provide custom scale and translate values or use user-initiated values from zoom and pan actions
+    /// on chart (for e.g. if you need show certain color from gradient colors when user zoomed chart
+    /// instead of showing same static gradient fill).
+    @objc open weak var linearGradientFillScalableDelegate: LinearGradientFillScalableDelegate?
     
     @objc open var type: FillType
     {
@@ -273,10 +291,19 @@ open class Fill: NSObject
             
         case .linearGradient:
             
+            var gradientRect = rect
+            
+            if let delegate = linearGradientFillScalableDelegate {
+                gradientRect.size.width *= delegate.scaleX
+                gradientRect.size.height *= delegate.scaleY
+                gradientRect.origin.x -= max(0, (gradientRect.size.width - rect.size.width)) - delegate.transX
+                gradientRect.origin.y -= max(0, (gradientRect.size.height - rect.size.height)) - delegate.transY
+            }
+            
             let radians = (360.0 - _gradientAngle).DEG2RAD
-            let centerPoint = CGPoint(x: rect.midX, y: rect.midY)
-            let xAngleDelta = cos(radians) * rect.width / 2.0
-            let yAngleDelta = sin(radians) * rect.height / 2.0
+            let centerPoint = CGPoint(x: gradientRect.midX, y: gradientRect.midY)
+            let xAngleDelta = cos(radians) * gradientRect.width / 2.0
+            let yAngleDelta = sin(radians) * gradientRect.height / 2.0
             let startPoint = CGPoint(
                 x: centerPoint.x - xAngleDelta,
                 y: centerPoint.y - yAngleDelta
